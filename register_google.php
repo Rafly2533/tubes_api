@@ -38,29 +38,45 @@ if (isset($userData["error"])) {
 $email = $conn->real_escape_string($userData["email"]);
 $nama  = $conn->real_escape_string($userData["name"]);
 
-// 4. Cek apakah user sudah pernah daftar
+// 4. Cek apakah user sudah pernah daftar (berdasarkan email)
 $cekUser = $conn->query("SELECT * FROM users WHERE email = '$email'");
 
-if ($cekUser->num_rows == 0) {
-    // Belum ada → insert data baru (auto-register)
-    $conn->query("INSERT INTO users (nama, email) VALUES ('$nama', '$email')");
-    $pesan = "Akun baru berhasil didaftarkan di LaparApp!";
+if ($cekUser->num_rows > 0) {
+    // User sudah ada
+    $user = $cekUser->fetch_assoc();
+    echo json_encode([
+        "status" => "exists",
+        "message" => "Akun sudah terdaftar. Silakan login.",
+        "data" => [
+            "id" => $user["id"],
+            "email" => $user["email"],
+            "nama" => $user["nama"]
+        ]
+    ]);
 } else {
-    $pesan = "Selamat datang kembali!";
+    // 5. User belum ada → REGISTER (tanpa password karena login Google)
+    $query = "INSERT INTO users (nama, email) VALUES ('$nama', '$email')";
+    
+    if ($conn->query($query)) {
+        $user_id = $conn->insert_id;
+        $user = $conn->query("SELECT * FROM users WHERE id = $user_id")->fetch_assoc();
+        
+        echo json_encode([
+            "status" => "success",
+            "message" => "Registrasi berhasil! Selamat datang di LaparApp!",
+            "data" => [
+                "id" => $user["id"],
+                "email" => $user["email"],
+                "nama" => $user["nama"]
+            ]
+        ]);
+    } else {
+        echo json_encode([
+            "status" => "error",
+            "message" => "Gagal registrasi: " . $conn->error
+        ]);
+    }
 }
-
-// Ambil data user
-$user = $conn->query("SELECT * FROM users WHERE email = '$email'")->fetch_assoc();
-
-echo json_encode([
-    "status" => "success", 
-    "message" => $pesan,
-    "data" => [
-        "id" => $user["id"],
-        "email" => $user["email"],
-        "nama" => $user["nama"]
-    ]
-]);
 
 $conn->close();
 ?>
